@@ -24,7 +24,7 @@ var eventProxy = /** @class */ (function (_super) {
         this.on(event, listener);
     };
     eventProxy.prototype.emitEvent = function (event, args) {
-        this.on(event, args);
+        this.emit(event, args);
     };
     return eventProxy;
 }(events_1.EventEmitter));
@@ -120,6 +120,7 @@ var TowerAOI = /** @class */ (function () {
             oldTower.remove(obj);
             newTower.add(obj);
             this.eventProxy.emitEvent("update", { id: obj.id, type: obj.type, oldWatchers: oldTower.watchers, newWatchers: newTower.watchers });
+            return true;
         }
     };
     /**
@@ -251,7 +252,7 @@ var TowerAOI = /** @class */ (function () {
     TowerAOI.prototype.getWatchersByTypes = function (pos, types) {
         if (this.checkPos(pos)) {
             var p = this.transPos(pos);
-            return this.towers[p.x][p.y].getWatchersByTypes(types);
+            return this.towers[p.y][p.x].getWatchersByTypes(types);
         }
         return {};
     };

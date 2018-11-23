@@ -1,12 +1,12 @@
 
-export interface typeId {
+export interface typeIdMap {
     [type: string]: { [id: number]: number }
 }
 
 /**
  * 实体结构
  */
-export interface obj_proxy {
+export interface id_type {
     /**
      * 唯一id
      */
@@ -22,13 +22,13 @@ export interface obj_proxy {
  */
 export class Tower {
     private ids: { [id: number]: number } = {};
-    public watchers: typeId = {};
-    private typeMap: typeId = {};
+    public watchers: typeIdMap = {};
+    private typeMap: typeIdMap = {};
 
     /**
      * 添加实体
      */
-    add(obj: obj_proxy) {
+    add(obj: id_type) {
         let id = obj.id;
         let type = obj.type;
         this.ids[id] = id;
@@ -39,7 +39,7 @@ export class Tower {
     /**
      * 移除实体
      */
-    remove(obj: obj_proxy) {
+    remove(obj: id_type) {
         let id = obj.id;
         let type = obj.type;
         if (!!this.ids[id]) {
@@ -53,7 +53,7 @@ export class Tower {
     /**
      * 添加观察者
      */
-    addWatcher(watcher: obj_proxy) {
+    addWatcher(watcher: id_type) {
         let type = watcher.type;
         let id = watcher.id;
         this.watchers[type] = this.watchers[type] || {};
@@ -63,7 +63,7 @@ export class Tower {
     /**
      * 移除观察者
      */
-    removeWatcher(watcher: obj_proxy) {
+    removeWatcher(watcher: id_type) {
         let type = watcher.type;
         let id = watcher.id;
         if (!!this.watchers[type]) {

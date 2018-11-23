@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { Tower, obj_proxy, typeId } from "./tower";
+import { Tower, typeIdMap } from "./tower";
 
 /**
  * 坐标向量
@@ -24,12 +24,12 @@ class eventProxy extends EventEmitter {
         this.on(event, listener);
     }
 
-    emitEvent(event: "add", args: { id: number, type: string, watchers: typeId }): void;
-    emitEvent(event: "remove", args: { id: number, type: string, watchers: typeId }): void;
-    emitEvent(event: "update", args: { id: number, type: string, oldWatchers: typeId, newWatchers: typeId }): void;
+    emitEvent(event: "add", args: { id: number, type: string, watchers: typeIdMap }): void;
+    emitEvent(event: "remove", args: { id: number, type: string, watchers: typeIdMap }): void;
+    emitEvent(event: "update", args: { id: number, type: string, oldWatchers: typeIdMap, newWatchers: typeIdMap }): void;
     emitEvent(event: "updateWatcher", args: { id: number, type: string, addObjs: number[], removeObjs: number[] }): void;
     emitEvent(event: "add" | "remove" | "update" | "updateWatcher", args: any) {
-        this.on(event, args);
+        this.emit(event, args);
     }
 }
 
@@ -69,13 +69,28 @@ export class TowerAOI {
     }
 
     /**
-     * add 事件
+     * 增加实体
      * @param event 
      * @param listener 
      */
-    on(event: "add", listener: (info: { id: number, type: string, watchers: typeId }) => void): void;
-    on(event: "remove", listener: (info: { id: number, type: string, watchers: typeId }) => void): void;
-    on(event: "update", listener: (info: { id: number, type: string, oldWatchers: typeId, newWatchers: typeId }) => void): void;
+    on(event: "add", listener: (info: { id: number, type: string, watchers: { [type: string]: { [id: number]: number } } }) => void): void;
+    /**
+     * 移除实体
+     * @param event 
+     * @param listener 
+     */
+    on(event: "remove", listener: (info: { id: number, type: string, watchers: { [type: string]: { [id: number]: number } } }) => void): void;
+    /**
+     * 实体位置更新，通知对应观察者
+     * @param event 
+     * @param listener 
+     */
+    on(event: "update", listener: (info: { id: number, type: string, oldWatchers: { [type: string]: { [id: number]: number } }, newWatchers: { [type: string]: { [id: number]: number } } }) => void): void;
+    /**
+     * 实体观察区域更新，通知实体
+     * @param event 
+     * @param listener 
+     */
     on(event: "updateWatcher", listener: (info: { id: number, type: string, addObjs: number[], removeObjs: number[] }) => void): void;
     on(event: "add" | "remove" | "update" | "updateWatcher", listener: (...args: any[]) => void): void {
         this.eventProxy.onEvent(event, listener);
@@ -105,7 +120,7 @@ export class TowerAOI {
      * @param obj 实体
      * @param pos 坐标
      */
-    addObject(obj: obj_proxy, pos: vector2) {
+    addObject(obj: { id: number, type: string }, pos: { x: number, y: number }) {
         if (this.checkPos(pos)) {
             let p = this.transPos(pos);
             this.towers[p.y][p.x].add(obj);
@@ -120,7 +135,7 @@ export class TowerAOI {
      * @param obj 实体
      * @param pos 坐标
      */
-    removeObject(obj: obj_proxy, pos: vector2) {
+    removeObject(obj: { id: number, type: string }, pos: { x: number, y: number }) {
         if (this.checkPos(pos)) {
             let p = this.transPos(pos);
             this.towers[p.y][p.x].remove(obj);
@@ -136,7 +151,7 @@ export class TowerAOI {
      * @param oldPos 旧坐标
      * @param newPos 新坐标
      */
-    updateObject(obj: obj_proxy, oldPos: vector2, newPos: vector2) {
+    updateObject(obj: { id: number, type: string }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }) {
         if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
             return false;
         }
@@ -147,6 +162,7 @@ export class TowerAOI {
         if (p1.x === p2.x && p1.y === p2.y)
             return true;
         else {
+
             let oldTower = this.towers[p1.y][p1.x];
             let newTower = this.towers[p2.y][p2.x];
 
@@ -154,6 +170,7 @@ export class TowerAOI {
             newTower.add(obj);
 
             this.eventProxy.emitEvent("update", { id: obj.id, type: obj.type, oldWatchers: oldTower.watchers, newWatchers: newTower.watchers });
+            return true;
         }
     }
 
@@ -163,7 +180,7 @@ export class TowerAOI {
      * @param pos 坐标
      * @param range 视野范围
      */
-    addWatcher(watcher: obj_proxy, pos: vector2, range: number) {
+    addWatcher(watcher: { id: number, type: string }, pos: { x: number, y: number }, range: number) {
         if (range < 0) {
             return;
         }
@@ -184,7 +201,7 @@ export class TowerAOI {
      * @param pos 坐标
      * @param range 视野范围
      */
-    removeWatcher(watcher: obj_proxy, pos: vector2, range: number) {
+    removeWatcher(watcher: { id: number, type: string }, pos: { x: number, y: number }, range: number) {
         if (range < 0) {
             return;
         }
@@ -207,7 +224,7 @@ export class TowerAOI {
      * @param oldRange 旧的视野范围
      * @param newRange 新的视野范围
      */
-    updateWatcher(watcher: obj_proxy, oldPos: vector2, newPos: vector2, oldRange: number, newRange: number) {
+    updateWatcher(watcher: { id: number, type: string }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }, oldRange: number, newRange: number) {
         if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
             return false;
         }
@@ -255,7 +272,7 @@ export class TowerAOI {
      * @param range 视野范围
      * @param types 类型
      */
-    getIdsByPosTypes(pos: vector2, range: number, types: string[]): { [type: string]: number[] } {
+    getIdsByPosTypes(pos: { x: number, y: number }, range: number, types: string[]): { [type: string]: number[] } {
         if (!this.checkPos(pos) || range < 0) {
             return {};
         }
@@ -278,7 +295,7 @@ export class TowerAOI {
      * @param pos 坐标
      * @param range 视野范围
      */
-    getIdsByPos(pos: vector2, range: number): number[] {
+    getIdsByPos(pos: { x: number, y: number }, range: number): number[] {
         if (!this.checkPos(pos) || range < 0) {
             return [];
         }
@@ -301,10 +318,10 @@ export class TowerAOI {
      * @param pos 坐标
      * @param types 类型
      */
-    getWatchersByTypes(pos: vector2, types: string[]): { [type: string]: { [id: number]: number } } {
+    getWatchersByTypes(pos: { x: number, y: number }, types: string[]): { [type: string]: { [id: number]: number } } {
         if (this.checkPos(pos)) {
-            var p = this.transPos(pos);
-            return this.towers[p.x][p.y].getWatchersByTypes(types);
+            let p = this.transPos(pos);
+            return this.towers[p.y][p.x].getWatchersByTypes(types);
         }
         return {};
     }
@@ -414,8 +431,8 @@ function addMap(arr: number[], map: { [id: number]: number }) {
  * @param types 
  */
 function addMapByTypes(result: { [type: string]: number[] }, map: { [type: string]: { [id: number]: number } }, types: string[]) {
-    for (var i = 0; i < types.length; i++) {
-        var type = types[i];
+    for (let i = 0; i < types.length; i++) {
+        let type = types[i];
 
         if (!map[type])
             continue;
@@ -423,7 +440,7 @@ function addMapByTypes(result: { [type: string]: number[] }, map: { [type: strin
         if (!result[type]) {
             result[type] = [];
         }
-        for (var key in map[type]) {
+        for (let key in map[type]) {
             result[type].push(map[type][key]);
         }
     }

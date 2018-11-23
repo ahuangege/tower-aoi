@@ -1,0 +1,14 @@
+{
+  "name": "tower-aoi",
+  "version": "1.0.0",
+  "author": {
+    "name": "ahuang"
+  },
+  "keywords": [
+    "aoi",
+    "tower",
+    "game view"
+  ],
+  "main": "dist/towerAOI.js",
+  "types": "./src/towerAOI.ts"
+}
