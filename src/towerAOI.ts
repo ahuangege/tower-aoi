@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { Tower, typeIdMap } from "./tower";
+import { Tower, id_type } from "./tower";
 
 /**
  * 坐标向量
@@ -15,21 +15,22 @@ interface vector2 {
     y: number;
 }
 
+
 /**
  * 事件代理
  */
 class eventProxy extends EventEmitter {
 
-    onEvent(event: "add" | "remove" | "update" | "updateWatcher", listener: (...args: any[]) => void) {
+    onEvent(event: "addObj" | "removeObj" | "updateObj" | "updateWatcher", listener: (...args: any[]) => void) {
         this.on(event, listener);
     }
 
-    emitEvent(event: "add", args: { id: number, type: string, watchers: typeIdMap }): void;
-    emitEvent(event: "remove", args: { id: number, type: string, watchers: typeIdMap }): void;
-    emitEvent(event: "update", args: { id: number, type: string, oldWatchers: typeIdMap, newWatchers: typeIdMap }): void;
-    emitEvent(event: "updateWatcher", args: { id: number, type: string, addObjs: number[], removeObjs: number[] }): void;
-    emitEvent(event: "add" | "remove" | "update" | "updateWatcher", args: any) {
-        this.emit(event, args);
+    emitEvent(event: "addObj", obj: id_type, watchers: id_type[]): void;
+    emitEvent(event: "removeObj", obj: id_type, watchers: id_type[]): void;
+    emitEvent(event: "updateObj", obj: id_type, addWatchers: id_type[], removeWatchers: id_type[]): void;
+    emitEvent(event: "updateWatcher", obj: id_type, addObjs: id_type[], removeObjs: id_type[]): void;
+    emitEvent(event: "addObj" | "removeObj" | "updateObj" | "updateWatcher", ...args: any[]) {
+        this.emit(event, ...args);
     }
 }
 
@@ -69,30 +70,30 @@ export class TowerAOI {
     }
 
     /**
-     * 增加实体
+     * 增加实体，通知对应观察者
      * @param event 
      * @param listener 
      */
-    on(event: "add", listener: (info: { id: number, type: string, watchers: { [type: string]: { [id: number]: number } } }) => void): void;
+    on(event: "addObj", listener: (obj: id_type, watchers: id_type[]) => void): void;
     /**
-     * 移除实体
+     * 移除实体，通知对应观察者
      * @param event 
      * @param listener 
      */
-    on(event: "remove", listener: (info: { id: number, type: string, watchers: { [type: string]: { [id: number]: number } } }) => void): void;
+    on(event: "removeObj", listener: (obj: id_type, watchers: id_type[]) => void): void;
     /**
      * 实体位置更新，通知对应观察者
      * @param event 
      * @param listener 
      */
-    on(event: "update", listener: (info: { id: number, type: string, oldWatchers: { [type: string]: { [id: number]: number } }, newWatchers: { [type: string]: { [id: number]: number } } }) => void): void;
+    on(event: "updateObj", listener: (obj: id_type, addWatchers: id_type[], removeWatchers: id_type[]) => void): void;
     /**
-     * 实体观察区域更新，通知实体
+     * 实体观察区域更新，通知该实体
      * @param event 
      * @param listener 
      */
-    on(event: "updateWatcher", listener: (info: { id: number, type: string, addObjs: number[], removeObjs: number[] }) => void): void;
-    on(event: "add" | "remove" | "update" | "updateWatcher", listener: (...args: any[]) => void): void {
+    on(event: "updateWatcher", listener: (obj: id_type, addObjs: id_type[], removeObjs: id_type[]) => void): void;
+    on(event: "addObj" | "removeObj" | "updateObj" | "updateWatcher", listener: (...args: any[]) => void): void {
         this.eventProxy.onEvent(event, listener);
     }
 
@@ -120,14 +121,12 @@ export class TowerAOI {
      * @param obj 实体
      * @param pos 坐标
      */
-    addObject(obj: { id: number, type: string }, pos: { x: number, y: number }) {
+    addObj(obj: { id: number, type: number }, pos: { x: number, y: number }) {
         if (this.checkPos(pos)) {
             let p = this.transPos(pos);
-            this.towers[p.y][p.x].add(obj);
-            this.eventProxy.emitEvent("add", { id: obj.id, type: obj.type, watchers: this.towers[p.y][p.x].watchers });
-            return true;
+            this.towers[p.y][p.x].addObj(obj);
+            this.eventProxy.emitEvent("addObj", obj, this.towers[p.y][p.x].getWatchers());
         }
-        return false;
     }
 
     /**
@@ -135,14 +134,12 @@ export class TowerAOI {
      * @param obj 实体
      * @param pos 坐标
      */
-    removeObject(obj: { id: number, type: string }, pos: { x: number, y: number }) {
+    removeObj(obj: { id: number, type: number }, pos: { x: number, y: number }) {
         if (this.checkPos(pos)) {
             let p = this.transPos(pos);
-            this.towers[p.y][p.x].remove(obj);
-            this.eventProxy.emitEvent("remove", { id: obj.id, type: obj.type, watchers: this.towers[p.y][p.x].watchers });
-            return true;
+            this.towers[p.y][p.x].removeObj(obj);
+            this.eventProxy.emitEvent("removeObj", obj, this.towers[p.y][p.x].getWatchers());
         }
-        return false;
     }
 
     /**
@@ -151,27 +148,37 @@ export class TowerAOI {
      * @param oldPos 旧坐标
      * @param newPos 新坐标
      */
-    updateObject(obj: { id: number, type: string }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }) {
+    updateObj(obj: { id: number, type: number }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }) {
         if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
-            return false;
+            return;
         }
-
         let p1 = this.transPos(oldPos);
         let p2 = this.transPos(newPos);
-
-        if (p1.x === p2.x && p1.y === p2.y)
-            return true;
-        else {
-
-            let oldTower = this.towers[p1.y][p1.x];
-            let newTower = this.towers[p2.y][p2.x];
-
-            oldTower.remove(obj);
-            newTower.add(obj);
-
-            this.eventProxy.emitEvent("update", { id: obj.id, type: obj.type, oldWatchers: oldTower.watchers, newWatchers: newTower.watchers });
-            return true;
+        if (p1.x === p2.x && p1.y === p2.y) {
+            return;
         }
+        let oldTower = this.towers[p1.y][p1.x];
+        let newTower = this.towers[p2.y][p2.x];
+        oldTower.removeObj(obj);
+        newTower.addObj(obj);
+        let oldWatchers = oldTower.getWatchers();
+        let newWatchers = newTower.getWatchers();
+        let addWatchers: id_type[] = [];
+        let removeWatchers: id_type[] = [];
+        let bothWatchers: id_type[] = [];
+        for (let one of newWatchers) {
+            if (oldWatchers.indexOf(one) === -1) {
+                addWatchers.push(one);
+            } else {
+                bothWatchers.push(one);
+            }
+        }
+        for (let one of oldWatchers) {
+            if (bothWatchers.indexOf(one) === -1) {
+                removeWatchers.push(one);
+            }
+        }
+        this.eventProxy.emitEvent("updateObj", obj, addWatchers, removeWatchers);
     }
 
     /**
@@ -180,7 +187,7 @@ export class TowerAOI {
      * @param pos 坐标
      * @param range 视野范围
      */
-    addWatcher(watcher: { id: number, type: string }, pos: { x: number, y: number }, range: number) {
+    addWatcher(watcher: { id: number, type: number }, pos: { x: number, y: number }, range: number) {
         if (range < 0) {
             return;
         }
@@ -201,7 +208,7 @@ export class TowerAOI {
      * @param pos 坐标
      * @param range 视野范围
      */
-    removeWatcher(watcher: { id: number, type: string }, pos: { x: number, y: number }, range: number) {
+    removeWatcher(watcher: { id: number, type: number }, pos: { x: number, y: number }, range: number) {
         if (range < 0) {
             return;
         }
@@ -224,70 +231,38 @@ export class TowerAOI {
      * @param oldRange 旧的视野范围
      * @param newRange 新的视野范围
      */
-    updateWatcher(watcher: { id: number, type: string }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }, oldRange: number, newRange: number) {
+    updateWatcher(watcher: { id: number, type: number }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }, oldRange: number, newRange: number) {
         if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
-            return false;
+            return;
         }
 
         let p1 = this.transPos(oldPos);
         let p2 = this.transPos(newPos);
 
-        if (p1.x === p2.x && p1.y === p2.y && oldRange === newRange)
-            return true;
-        else {
-            if (oldRange < 0 || newRange < 0) {
-                return false;
-            }
-
-            oldRange = oldRange > this.rangeLimit ? this.rangeLimit : oldRange;
-            newRange = newRange > this.rangeLimit ? this.rangeLimit : newRange;
-
-            let changedTowers = getChangedTowers(p1, p2, oldRange, newRange, this.towers, this.max);
-            let removeTowers = changedTowers.removeTowers;
-            let addTowers = changedTowers.addTowers;
-            let addObjs: number[] = [];
-            let removeObjs: number[] = [];
-
-            let i: number, ids: { [id: number]: number };
-            for (i = 0; i < addTowers.length; i++) {
-                addTowers[i].addWatcher(watcher);
-                ids = addTowers[i].getIds();
-                addMap(addObjs, ids);
-            }
-
-            for (i = 0; i < removeTowers.length; i++) {
-                removeTowers[i].removeWatcher(watcher);
-                ids = removeTowers[i].getIds();
-                addMap(removeObjs, ids);
-            }
-
-            this.eventProxy.emitEvent('updateWatcher', { id: watcher.id, type: watcher.type, addObjs: addObjs, removeObjs: removeObjs });
-            return true;
+        if (p1.x === p2.x && p1.y === p2.y && oldRange === newRange) {
+            return;
         }
-    }
-
-    /**
-     * 根据类型获得id
-     * @param pos 坐标
-     * @param range 视野范围
-     * @param types 类型
-     */
-    getIdsByPosTypes(pos: { x: number, y: number }, range: number, types: string[]): { [type: string]: number[] } {
-        if (!this.checkPos(pos) || range < 0) {
-            return {};
+        if (oldRange < 0 || newRange < 0) {
+            return;
         }
-        range = range > this.rangeLimit ? this.rangeLimit : range;
 
-        let result: { [type: string]: number[] } = {};
-        let p = this.transPos(pos);
-        let limit = getPosLimit(p, range, this.max);
+        oldRange = oldRange > this.rangeLimit ? this.rangeLimit : oldRange;
+        newRange = newRange > this.rangeLimit ? this.rangeLimit : newRange;
 
-        for (let y = limit.start.y; y <= limit.end.y; y++) {
-            for (let x = limit.start.x; x <= limit.end.x; x++) {
-                addMapByTypes(result, this.towers[y][x].getIdsByTypes(types), types);
-            }
+        let changedTowers = getChangedTowers(p1, p2, oldRange, newRange, this.towers, this.max);
+        let removeTowers = changedTowers.removeTowers;
+        let addTowers = changedTowers.addTowers;
+        let addObjs: id_type[] = [];
+        let removeObjs: id_type[] = [];
+        for (let i = 0; i < addTowers.length; i++) {
+            addTowers[i].addWatcher(watcher);
+            addObjs = addObjs.concat(addTowers[i].getObjs());
         }
-        return result;
+        for (let i = 0; i < removeTowers.length; i++) {
+            removeTowers[i].removeWatcher(watcher);
+            removeObjs = removeObjs.concat(removeTowers[i].getObjs());
+        }
+        this.eventProxy.emitEvent('updateWatcher', watcher, addObjs, removeObjs);
     }
 
     /**
@@ -295,19 +270,19 @@ export class TowerAOI {
      * @param pos 坐标
      * @param range 视野范围
      */
-    getIdsByPos(pos: { x: number, y: number }, range: number): number[] {
+    getObjs(pos: { x: number, y: number }, range: number): id_type[] {
         if (!this.checkPos(pos) || range < 0) {
             return [];
         }
         range = range > this.rangeLimit ? this.rangeLimit : range;
 
-        let result: number[] = [];
+        let result: id_type[] = [];
         let p = this.transPos(pos);
         let limit = getPosLimit(p, range, this.max);
 
         for (let y = limit.start.y; y <= limit.end.y; y++) {
             for (let x = limit.start.x; x <= limit.end.x; x++) {
-                addMap(result, this.towers[y][x].getIds());
+                result = result.concat(this.towers[y][x].getObjs());
             }
         }
         return result;
@@ -318,12 +293,12 @@ export class TowerAOI {
      * @param pos 坐标
      * @param types 类型
      */
-    getWatchersByTypes(pos: { x: number, y: number }, types: string[]): { [type: string]: { [id: number]: number } } {
+    getWatchers(pos: { x: number, y: number }): id_type[] {
         if (this.checkPos(pos)) {
             let p = this.transPos(pos);
-            return this.towers[p.y][p.x].getWatchersByTypes(types);
+            return this.towers[p.y][p.x].getWatchers();
         }
-        return {};
+        return [];
     }
 }
 
@@ -358,10 +333,18 @@ function getPosLimit(pos: vector2, range: number, max: vector2) {
         end.y = pos.y + range;
     }
 
-    start.x = start.x >= 0 ? start.x : 0;
-    end.x = end.x <= max.x ? end.x : max.x;
-    start.y = start.y >= 0 ? start.y : 0;
-    end.y = end.y <= max.y ? end.y : max.y;
+    if (start.x < 0) {
+        start.x = 0;
+    }
+    if (start.y < 0) {
+        start.y = 0;
+    }
+    if (end.x > max.x) {
+        end.x = max.x;
+    }
+    if (end.y > max.y) {
+        end.y = max.y;
+    }
 
     return { start: start, end: end };
 }
@@ -390,13 +373,10 @@ function getChangedTowers(p1: vector2, p2: vector2, r1: number, r2: number, towe
     let limit2 = getPosLimit(p2, r2, max);
     let removeTowers: Tower[] = [];
     let addTowers: Tower[] = [];
-    let unChangeTowers: Tower[] = [];
 
     for (let y = limit1.start.y; y <= limit1.end.y; y++) {
         for (let x = limit1.start.x; x <= limit1.end.x; x++) {
-            if (isInRect({ x: x, y: y }, limit2.start, limit2.end)) {
-                unChangeTowers.push(towers[y][x]);
-            } else {
+            if (!isInRect({ x: x, y: y }, limit2.start, limit2.end)) {
                 removeTowers.push(towers[y][x]);
             }
         }
@@ -410,40 +390,5 @@ function getChangedTowers(p1: vector2, p2: vector2, r1: number, r2: number, towe
         }
     }
 
-    return { addTowers: addTowers, removeTowers: removeTowers, unChangeTowers: unChangeTowers };
+    return { addTowers: addTowers, removeTowers: removeTowers };
 }
-
-/**
- * 
- * @param arr 
- * @param map 
- */
-function addMap(arr: number[], map: { [id: number]: number }) {
-    for (let key in map) {
-        arr.push(map[key]);
-    }
-}
-
-/**
- * 
- * @param result 
- * @param map 
- * @param types 
- */
-function addMapByTypes(result: { [type: string]: number[] }, map: { [type: string]: { [id: number]: number } }, types: string[]) {
-    for (let i = 0; i < types.length; i++) {
-        let type = types[i];
-
-        if (!map[type])
-            continue;
-
-        if (!result[type]) {
-            result[type] = [];
-        }
-        for (let key in map[type]) {
-            result[type].push(map[type][key]);
-        }
-    }
-}
-
-

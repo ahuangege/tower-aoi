@@ -5,30 +5,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 var Tower = /** @class */ (function () {
     function Tower() {
-        this.ids = {};
-        this.watchers = {};
-        this.typeMap = {};
+        this.objs = [];
+        this.watchers = [];
     }
     /**
      * 添加实体
      */
-    Tower.prototype.add = function (obj) {
-        var id = obj.id;
-        var type = obj.type;
-        this.ids[id] = id;
-        this.typeMap[type] = this.typeMap[type] || {};
-        this.typeMap[type][id] = id;
+    Tower.prototype.addObj = function (obj) {
+        this.objs.push(obj);
     };
     /**
      * 移除实体
      */
-    Tower.prototype.remove = function (obj) {
-        var id = obj.id;
-        var type = obj.type;
-        if (!!this.ids[id]) {
-            delete this.ids[id];
-            if (this.typeMap[type]) {
-                delete this.typeMap[type][id];
+    Tower.prototype.removeObj = function (obj) {
+        for (var i = this.objs.length - 1; i >= 0; i--) {
+            var one = this.objs[i];
+            if (one.id === obj.id && one.type === obj.type) {
+                this.objs.splice(i, 1);
+                break;
             }
         }
     };
@@ -36,51 +30,31 @@ var Tower = /** @class */ (function () {
      * 添加观察者
      */
     Tower.prototype.addWatcher = function (watcher) {
-        var type = watcher.type;
-        var id = watcher.id;
-        this.watchers[type] = this.watchers[type] || {};
-        this.watchers[type][id] = id;
+        this.watchers.push(watcher);
     };
     /**
      * 移除观察者
      */
     Tower.prototype.removeWatcher = function (watcher) {
-        var type = watcher.type;
-        var id = watcher.id;
-        if (!!this.watchers[type]) {
-            delete this.watchers[type][id];
+        for (var i = this.watchers.length - 1; i >= 0; i--) {
+            var one = this.watchers[i];
+            if (one.id === watcher.id && one.type === watcher.type) {
+                this.watchers.splice(i, 1);
+                break;
+            }
         }
+    };
+    /**
+     * 获取所有实体
+     */
+    Tower.prototype.getObjs = function () {
+        return this.objs;
     };
     /**
      * 获取所有观察者
      */
-    Tower.prototype.getWatchersByTypes = function (types) {
-        var result = {};
-        for (var i = 0; i < types.length; i++) {
-            var type = types[i];
-            if (!!this.watchers[type]) {
-                result[type] = this.watchers[type];
-            }
-        }
-        return result;
-    };
-    /**
-     * 获取所有实体id
-     */
-    Tower.prototype.getIds = function () {
-        return this.ids;
-    };
-    /**
-     * 根据类型获取实体id
-     */
-    Tower.prototype.getIdsByTypes = function (types) {
-        var result = {};
-        for (var i = 0; i < types.length; i++) {
-            var type = types[i];
-            if (!!this.typeMap[type])
-                result[type] = this.typeMap[type];
-        }
-        return result;
+    Tower.prototype.getWatchers = function () {
+        return this.watchers;
     };
     return Tower;
 }());

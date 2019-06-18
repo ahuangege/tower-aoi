@@ -23,8 +23,12 @@ var eventProxy = /** @class */ (function (_super) {
     eventProxy.prototype.onEvent = function (event, listener) {
         this.on(event, listener);
     };
-    eventProxy.prototype.emitEvent = function (event, args) {
-        this.emit(event, args);
+    eventProxy.prototype.emitEvent = function (event) {
+        var args = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            args[_i - 1] = arguments[_i];
+        }
+        this.emit.apply(this, [event].concat(args));
     };
     return eventProxy;
 }(events_1.EventEmitter));
@@ -77,28 +81,24 @@ var TowerAOI = /** @class */ (function () {
      * @param obj 实体
      * @param pos 坐标
      */
-    TowerAOI.prototype.addObject = function (obj, pos) {
+    TowerAOI.prototype.addObj = function (obj, pos) {
         if (this.checkPos(pos)) {
             var p = this.transPos(pos);
-            this.towers[p.y][p.x].add(obj);
-            this.eventProxy.emitEvent("add", { id: obj.id, type: obj.type, watchers: this.towers[p.y][p.x].watchers });
-            return true;
+            this.towers[p.y][p.x].addObj(obj);
+            this.eventProxy.emitEvent("addObj", obj, this.towers[p.y][p.x].getWatchers());
         }
-        return false;
     };
     /**
      * 移除实体
      * @param obj 实体
      * @param pos 坐标
      */
-    TowerAOI.prototype.removeObject = function (obj, pos) {
+    TowerAOI.prototype.removeObj = function (obj, pos) {
         if (this.checkPos(pos)) {
             var p = this.transPos(pos);
-            this.towers[p.y][p.x].remove(obj);
-            this.eventProxy.emitEvent("remove", { id: obj.id, type: obj.type, watchers: this.towers[p.y][p.x].watchers });
-            return true;
+            this.towers[p.y][p.x].removeObj(obj);
+            this.eventProxy.emitEvent("removeObj", obj, this.towers[p.y][p.x].getWatchers());
         }
-        return false;
     };
     /**
      * 更新实体坐标
@@ -106,22 +106,40 @@ var TowerAOI = /** @class */ (function () {
      * @param oldPos 旧坐标
      * @param newPos 新坐标
      */
-    TowerAOI.prototype.updateObject = function (obj, oldPos, newPos) {
+    TowerAOI.prototype.updateObj = function (obj, oldPos, newPos) {
         if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
-            return false;
+            return;
         }
         var p1 = this.transPos(oldPos);
         var p2 = this.transPos(newPos);
-        if (p1.x === p2.x && p1.y === p2.y)
-            return true;
-        else {
-            var oldTower = this.towers[p1.y][p1.x];
-            var newTower = this.towers[p2.y][p2.x];
-            oldTower.remove(obj);
-            newTower.add(obj);
-            this.eventProxy.emitEvent("update", { id: obj.id, type: obj.type, oldWatchers: oldTower.watchers, newWatchers: newTower.watchers });
-            return true;
+        if (p1.x === p2.x && p1.y === p2.y) {
+            return;
         }
+        var oldTower = this.towers[p1.y][p1.x];
+        var newTower = this.towers[p2.y][p2.x];
+        oldTower.removeObj(obj);
+        newTower.addObj(obj);
+        var oldWatchers = oldTower.getWatchers();
+        var newWatchers = newTower.getWatchers();
+        var addWatchers = [];
+        var removeWatchers = [];
+        var bothWatchers = [];
+        for (var _i = 0, newWatchers_1 = newWatchers; _i < newWatchers_1.length; _i++) {
+            var one = newWatchers_1[_i];
+            if (oldWatchers.indexOf(one) === -1) {
+                addWatchers.push(one);
+            }
+            else {
+                bothWatchers.push(one);
+            }
+        }
+        for (var _a = 0, oldWatchers_1 = oldWatchers; _a < oldWatchers_1.length; _a++) {
+            var one = oldWatchers_1[_a];
+            if (bothWatchers.indexOf(one) === -1) {
+                removeWatchers.push(one);
+            }
+        }
+        this.eventProxy.emitEvent("updateObj", obj, addWatchers, removeWatchers);
     };
     /**
      * 添加观察者
@@ -171,65 +189,39 @@ var TowerAOI = /** @class */ (function () {
      */
     TowerAOI.prototype.updateWatcher = function (watcher, oldPos, newPos, oldRange, newRange) {
         if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
-            return false;
+            return;
         }
         var p1 = this.transPos(oldPos);
         var p2 = this.transPos(newPos);
-        if (p1.x === p2.x && p1.y === p2.y && oldRange === newRange)
-            return true;
-        else {
-            if (oldRange < 0 || newRange < 0) {
-                return false;
-            }
-            oldRange = oldRange > this.rangeLimit ? this.rangeLimit : oldRange;
-            newRange = newRange > this.rangeLimit ? this.rangeLimit : newRange;
-            var changedTowers = getChangedTowers(p1, p2, oldRange, newRange, this.towers, this.max);
-            var removeTowers = changedTowers.removeTowers;
-            var addTowers = changedTowers.addTowers;
-            var addObjs = [];
-            var removeObjs = [];
-            var i = void 0, ids = void 0;
-            for (i = 0; i < addTowers.length; i++) {
-                addTowers[i].addWatcher(watcher);
-                ids = addTowers[i].getIds();
-                addMap(addObjs, ids);
-            }
-            for (i = 0; i < removeTowers.length; i++) {
-                removeTowers[i].removeWatcher(watcher);
-                ids = removeTowers[i].getIds();
-                addMap(removeObjs, ids);
-            }
-            this.eventProxy.emitEvent('updateWatcher', { id: watcher.id, type: watcher.type, addObjs: addObjs, removeObjs: removeObjs });
-            return true;
+        if (p1.x === p2.x && p1.y === p2.y && oldRange === newRange) {
+            return;
         }
-    };
-    /**
-     * 根据类型获得id
-     * @param pos 坐标
-     * @param range 视野范围
-     * @param types 类型
-     */
-    TowerAOI.prototype.getIdsByPosTypes = function (pos, range, types) {
-        if (!this.checkPos(pos) || range < 0) {
-            return {};
+        if (oldRange < 0 || newRange < 0) {
+            return;
         }
-        range = range > this.rangeLimit ? this.rangeLimit : range;
-        var result = {};
-        var p = this.transPos(pos);
-        var limit = getPosLimit(p, range, this.max);
-        for (var y = limit.start.y; y <= limit.end.y; y++) {
-            for (var x = limit.start.x; x <= limit.end.x; x++) {
-                addMapByTypes(result, this.towers[y][x].getIdsByTypes(types), types);
-            }
+        oldRange = oldRange > this.rangeLimit ? this.rangeLimit : oldRange;
+        newRange = newRange > this.rangeLimit ? this.rangeLimit : newRange;
+        var changedTowers = getChangedTowers(p1, p2, oldRange, newRange, this.towers, this.max);
+        var removeTowers = changedTowers.removeTowers;
+        var addTowers = changedTowers.addTowers;
+        var addObjs = [];
+        var removeObjs = [];
+        for (var i = 0; i < addTowers.length; i++) {
+            addTowers[i].addWatcher(watcher);
+            addObjs = addObjs.concat(addTowers[i].getObjs());
         }
-        return result;
+        for (var i = 0; i < removeTowers.length; i++) {
+            removeTowers[i].removeWatcher(watcher);
+            removeObjs = removeObjs.concat(removeTowers[i].getObjs());
+        }
+        this.eventProxy.emitEvent('updateWatcher', watcher, addObjs, removeObjs);
     };
     /**
      * 获得所有id
      * @param pos 坐标
      * @param range 视野范围
      */
-    TowerAOI.prototype.getIdsByPos = function (pos, range) {
+    TowerAOI.prototype.getObjs = function (pos, range) {
         if (!this.checkPos(pos) || range < 0) {
             return [];
         }
@@ -239,7 +231,7 @@ var TowerAOI = /** @class */ (function () {
         var limit = getPosLimit(p, range, this.max);
         for (var y = limit.start.y; y <= limit.end.y; y++) {
             for (var x = limit.start.x; x <= limit.end.x; x++) {
-                addMap(result, this.towers[y][x].getIds());
+                result = result.concat(this.towers[y][x].getObjs());
             }
         }
         return result;
@@ -249,12 +241,12 @@ var TowerAOI = /** @class */ (function () {
      * @param pos 坐标
      * @param types 类型
      */
-    TowerAOI.prototype.getWatchersByTypes = function (pos, types) {
+    TowerAOI.prototype.getWatchers = function (pos) {
         if (this.checkPos(pos)) {
             var p = this.transPos(pos);
-            return this.towers[p.y][p.x].getWatchersByTypes(types);
+            return this.towers[p.y][p.x].getWatchers();
         }
-        return {};
+        return [];
     };
     return TowerAOI;
 }());
@@ -291,10 +283,18 @@ function getPosLimit(pos, range, max) {
         start.y = pos.y - range;
         end.y = pos.y + range;
     }
-    start.x = start.x >= 0 ? start.x : 0;
-    end.x = end.x <= max.x ? end.x : max.x;
-    start.y = start.y >= 0 ? start.y : 0;
-    end.y = end.y <= max.y ? end.y : max.y;
+    if (start.x < 0) {
+        start.x = 0;
+    }
+    if (start.y < 0) {
+        start.y = 0;
+    }
+    if (end.x > max.x) {
+        end.x = max.x;
+    }
+    if (end.y > max.y) {
+        end.y = max.y;
+    }
     return { start: start, end: end };
 }
 /**
@@ -320,13 +320,9 @@ function getChangedTowers(p1, p2, r1, r2, towers, max) {
     var limit2 = getPosLimit(p2, r2, max);
     var removeTowers = [];
     var addTowers = [];
-    var unChangeTowers = [];
     for (var y = limit1.start.y; y <= limit1.end.y; y++) {
         for (var x = limit1.start.x; x <= limit1.end.x; x++) {
-            if (isInRect({ x: x, y: y }, limit2.start, limit2.end)) {
-                unChangeTowers.push(towers[y][x]);
-            }
-            else {
+            if (!isInRect({ x: x, y: y }, limit2.start, limit2.end)) {
                 removeTowers.push(towers[y][x]);
             }
         }
@@ -338,34 +334,5 @@ function getChangedTowers(p1, p2, r1, r2, towers, max) {
             }
         }
     }
-    return { addTowers: addTowers, removeTowers: removeTowers, unChangeTowers: unChangeTowers };
-}
-/**
- *
- * @param arr
- * @param map
- */
-function addMap(arr, map) {
-    for (var key in map) {
-        arr.push(map[key]);
-    }
-}
-/**
- *
- * @param result
- * @param map
- * @param types
- */
-function addMapByTypes(result, map, types) {
-    for (var i = 0; i < types.length; i++) {
-        var type = types[i];
-        if (!map[type])
-            continue;
-        if (!result[type]) {
-            result[type] = [];
-        }
-        for (var key in map[type]) {
-            result[type].push(map[type][key]);
-        }
-    }
+    return { addTowers: addTowers, removeTowers: removeTowers };
 }
