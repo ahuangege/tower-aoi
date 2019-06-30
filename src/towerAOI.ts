@@ -126,6 +126,8 @@ export class TowerAOI {
             let p = this.transPos(pos);
             this.towers[p.y][p.x].addObj(obj);
             this.eventProxy.emitEvent("addObj", obj, this.towers[p.y][p.x].getWatchers());
+        } else {
+            console.warn("illegal pos:", pos);
         }
     }
 
@@ -139,6 +141,8 @@ export class TowerAOI {
             let p = this.transPos(pos);
             this.towers[p.y][p.x].removeObj(obj);
             this.eventProxy.emitEvent("removeObj", obj, this.towers[p.y][p.x].getWatchers());
+        } else {
+            console.warn("illegal pos:", pos);
         }
     }
 
@@ -149,7 +153,12 @@ export class TowerAOI {
      * @param newPos 新坐标
      */
     updateObj(obj: { id: number, type: number }, oldPos: { x: number, y: number }, newPos: { x: number, y: number }) {
-        if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
+        if (!this.checkPos(oldPos)) {
+            console.warn("illegal pos:", oldPos);
+            return;
+        }
+        if (!this.checkPos(newPos)) {
+            console.warn("illegal pos:", newPos);
             return;
         }
         let p1 = this.transPos(oldPos);
@@ -167,18 +176,27 @@ export class TowerAOI {
         let removeWatchers: id_type[] = [];
         let bothWatchers: id_type[] = [];
         for (let one of newWatchers) {
-            if (oldWatchers.indexOf(one) === -1) {
+            if (!this.cotains(oldWatchers, one)) {
                 addWatchers.push(one);
             } else {
                 bothWatchers.push(one);
             }
         }
         for (let one of oldWatchers) {
-            if (bothWatchers.indexOf(one) === -1) {
+            if (!this.cotains(bothWatchers, one)) {
                 removeWatchers.push(one);
             }
         }
         this.eventProxy.emitEvent("updateObj", obj, addWatchers, removeWatchers);
+    }
+
+    private cotains(watchers: id_type[], one: id_type) {
+        for (let tmp of watchers) {
+            if (tmp.id === one.id && tmp.type === one.type) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -1,8 +1,11 @@
 "use strict";
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    }
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -87,6 +90,9 @@ var TowerAOI = /** @class */ (function () {
             this.towers[p.y][p.x].addObj(obj);
             this.eventProxy.emitEvent("addObj", obj, this.towers[p.y][p.x].getWatchers());
         }
+        else {
+            console.warn("illegal pos:", pos);
+        }
     };
     /**
      * 移除实体
@@ -99,6 +105,9 @@ var TowerAOI = /** @class */ (function () {
             this.towers[p.y][p.x].removeObj(obj);
             this.eventProxy.emitEvent("removeObj", obj, this.towers[p.y][p.x].getWatchers());
         }
+        else {
+            console.warn("illegal pos:", pos);
+        }
     };
     /**
      * 更新实体坐标
@@ -107,7 +116,12 @@ var TowerAOI = /** @class */ (function () {
      * @param newPos 新坐标
      */
     TowerAOI.prototype.updateObj = function (obj, oldPos, newPos) {
-        if (!this.checkPos(oldPos) || !this.checkPos(newPos)) {
+        if (!this.checkPos(oldPos)) {
+            console.warn("illegal pos:", oldPos);
+            return;
+        }
+        if (!this.checkPos(newPos)) {
+            console.warn("illegal pos:", newPos);
             return;
         }
         var p1 = this.transPos(oldPos);
@@ -126,7 +140,7 @@ var TowerAOI = /** @class */ (function () {
         var bothWatchers = [];
         for (var _i = 0, newWatchers_1 = newWatchers; _i < newWatchers_1.length; _i++) {
             var one = newWatchers_1[_i];
-            if (oldWatchers.indexOf(one) === -1) {
+            if (!this.cotains(oldWatchers, one)) {
                 addWatchers.push(one);
             }
             else {
@@ -135,11 +149,20 @@ var TowerAOI = /** @class */ (function () {
         }
         for (var _a = 0, oldWatchers_1 = oldWatchers; _a < oldWatchers_1.length; _a++) {
             var one = oldWatchers_1[_a];
-            if (bothWatchers.indexOf(one) === -1) {
+            if (!this.cotains(bothWatchers, one)) {
                 removeWatchers.push(one);
             }
         }
         this.eventProxy.emitEvent("updateObj", obj, addWatchers, removeWatchers);
+    };
+    TowerAOI.prototype.cotains = function (watchers, one) {
+        for (var _i = 0, watchers_1 = watchers; _i < watchers_1.length; _i++) {
+            var tmp = watchers_1[_i];
+            if (tmp.id === one.id && tmp.type === one.type) {
+                return true;
+            }
+        }
+        return false;
     };
     /**
      * 添加观察者
