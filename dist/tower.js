@@ -1,61 +1,67 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Tower = void 0;
 /**
  * 灯塔
  */
-var Tower = /** @class */ (function () {
-    function Tower() {
+class Tower {
+    constructor(info) {
         this.objs = [];
         this.watchers = [];
+        this.xMin = 0;
+        this.xMax = 0;
+        this.yMin = 0;
+        this.yMax = 0;
+        this.xMin = info.xMin;
+        this.xMax = info.xMax;
+        this.yMin = info.yMin;
+        this.yMax = info.yMax;
     }
     /**
      * 添加实体
      */
-    Tower.prototype.addObj = function (obj) {
+    addObj(obj) {
         this.objs.push(obj);
-    };
+    }
     /**
      * 移除实体
      */
-    Tower.prototype.removeObj = function (obj) {
-        for (var i = this.objs.length - 1; i >= 0; i--) {
-            var one = this.objs[i];
-            if (one.id === obj.id && one.type === obj.type) {
-                this.objs.splice(i, 1);
-                break;
-            }
+    removeObj(obj) {
+        let index = this.objs.indexOf(obj);
+        if (index !== -1) {
+            this.objs.splice(index, 1);
         }
-    };
+    }
     /**
      * 添加观察者
      */
-    Tower.prototype.addWatcher = function (watcher) {
+    addWatcher(watcher) {
         this.watchers.push(watcher);
-    };
+    }
     /**
      * 移除观察者
      */
-    Tower.prototype.removeWatcher = function (watcher) {
-        for (var i = this.watchers.length - 1; i >= 0; i--) {
-            var one = this.watchers[i];
-            if (one.id === watcher.id && one.type === watcher.type) {
-                this.watchers.splice(i, 1);
-                break;
-            }
+    removeWatcher(watcher) {
+        let index = this.watchers.indexOf(watcher);
+        if (index !== -1) {
+            this.watchers.splice(index, 1);
         }
-    };
+    }
     /**
      * 获取所有实体
      */
-    Tower.prototype.getObjs = function () {
+    getObjs() {
         return this.objs;
-    };
+    }
     /**
      * 获取所有观察者
      */
-    Tower.prototype.getWatchers = function () {
+    getWatchers() {
         return this.watchers;
-    };
-    return Tower;
-}());
+    }
+    /** 是否仍在本灯塔内 */
+    isStillIn(pos) {
+        return pos.x >= this.xMin && pos.x <= this.xMax && pos.y >= this.yMin && pos.y <= this.yMax;
+    }
+}
 exports.Tower = Tower;

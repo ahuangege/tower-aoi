@@ -1,28 +1,4 @@
 {
-  "_from": "tower-aoi",
-  "_id": "tower-aoi@1.0.0",
-  "_inBundle": false,
-  "_integrity": "sha512-IVRRgvg3AjKkjYfcnGUpAqpSSZNBW39CWH5FTzKCJI8JxXo2LnnA9mXcAKDj8ZBKTHqIctv/3D32pHT1qoCDnQ==",
-  "_location": "/tower-aoi",
-  "_phantomChildren": {},
-  "_requested": {
-    "type": "tag",
-    "registry": true,
-    "raw": "tower-aoi",
-    "name": "tower-aoi",
-    "escapedName": "tower-aoi",
-    "rawSpec": "",
-    "saveSpec": null,
-    "fetchSpec": "latest"
-  },
-  "_requiredBy": [
-    "#USER",
-    "/"
-  ],
-  "_resolved": "https://registry.npmjs.org/tower-aoi/-/tower-aoi-1.0.0.tgz",
-  "_shasum": "b8a492376be962329864485094cc8016824b007a",
-  "_spec": "tower-aoi",
-  "_where": "E:\\nodejs\\demo-aoi_path-master",
   "author": {
     "name": "ahuang"
   },
@@ -37,5 +13,5 @@
   "main": "dist/towerAOI.js",
   "name": "tower-aoi",
   "types": "./src/towerAOI.ts",
-  "version": "1.1.0"
+  "version": "1.2.0"
 }
